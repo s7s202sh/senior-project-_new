@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "public": "public",
+    "rewrites": [
+      {
+        "source": "/supervisor.html",
+        "destination": "/supervisor.html"
+      },
+      {
+        "source": "/student.html",
+        "destination": "/student.html"
+      }
+    ]
+  }
+}
+
