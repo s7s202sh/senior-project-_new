@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Student</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -13,7 +13,6 @@
       <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600">Logout</button>
     </div>
 
-    <!-- Student Info Section -->
     <div class="mb-6">
       <h2 class="text-xl font-semibold">Your Info</h2>
       <button id="editInfoBtn" class="bg-yellow-500 text-white px-4 py-2 rounded-xl hover:bg-yellow-600">Edit Info</button>
@@ -29,24 +28,18 @@
 
     <hr class="my-6" />
 
-    <!-- My Project Section -->
     <h2 class="text-3xl font-bold text-green-800 mb-4">My Project</h2>
-    <div id="myProject" class="space-y-4 mb-8">
-      <!-- Chosen project appears here -->
-    </div>
+    <div id="myProject" class="space-y-4 mb-8"></div>
 
-    <!-- Available Projects Section -->
     <h2 class="text-3xl font-bold text-green-800 mb-6">Available Projects</h2>
-    <div id="projects" class="space-y-4">
-      <!-- Projects will be loaded here -->
-    </div>
+    <div id="projects" class="space-y-4"></div>
   </div>
 
-  <!-- Firebase SDK + Firestore -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import { getStorage, ref as storageRef, uploadBytes } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCOhTTs-DuxLZ2kjydpsndmXSKGiQAfn68",
@@ -60,6 +53,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const storage = getStorage(app);
 
     const projectsContainer = document.getElementById('projects');
     const myProjectContainer = document.getElementById('myProject');
@@ -76,15 +70,17 @@
     let currentUser = null;
     let studentName = "";
     let studentId = "";
+    let usedProjects = new Set();
 
     onAuthStateChanged(auth, user => {
       if (user) {
         currentUser = user;
         loadStudentInfo();
         loadMyProject();
+        loadPendingRequests();
       } else {
         alert("You must be logged in.");
-        window.location.href = "login.html";
+        window.location.href = "index.html";
       }
     });
 
@@ -132,6 +128,12 @@
       const querySnapshot = await getDocs(collection(db, "projects"));
       projectsContainer.innerHTML = "";
 
+      const studentProjectsSnapshot = await getDocs(collection(db, "studentProjects"));
+      studentProjectsSnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        usedProjects.add(data.projectName);
+      });
+
       for (const docSnap of querySnapshot.docs) {
         const projectData = docSnap.data();
         const { name, description, supervisorId } = projectData;
@@ -148,42 +150,53 @@
           <p class="text-sm text-gray-500">Supervisor: <span class="font-semibold">${supervisorName}</span></p>
           <h2 class="text-xl font-semibold text-green-900">${name}</h2>
           <p class="text-gray-700">${description}</p>
-          <button class="chooseBtn bg-green-600 text-white px-3 py-1 rounded-xl">Choose</button>
-          <div class="hidden teamForm mt-2">
-            <input type="text" class="teamInput w-full p-1 border rounded" placeholder="Enter teammate student ID" />
-            <button class="addMore text-blue-600 mt-1">+ Add more</button>
-            <button class="submitTeam bg-blue-600 text-white px-3 py-1 mt-2 rounded-xl">Submit</button>
-          </div>`;
+          ${
+            usedProjects.has(name)
+              ? `<p class="text-red-600 font-semibold">Not Available</p>`
+              : `
+                <button class="chooseBtn bg-green-600 text-white px-3 py-1 rounded-xl">Choose</button>
+                <div class="hidden teamForm mt-2">
+                  <input type="text" class="teamInput w-full p-1 border rounded" placeholder="Enter teammate student ID" />
+                  <button class="addMore text-blue-600 mt-1">+ Add more</button>
+                  <button class="submitTeam bg-blue-600 text-white px-3 py-1 mt-2 rounded-xl">Submit</button>
+                </div>
+              `
+          }
+        `;
 
-        const chooseBtn = container.querySelector(".chooseBtn");
-        const teamForm = container.querySelector(".teamForm");
-        const submitBtn = container.querySelector(".submitTeam");
-        const addMore = container.querySelector(".addMore");
-        const teamInput = container.querySelector(".teamInput");
+        if (!usedProjects.has(name)) {
+          const chooseBtn = container.querySelector(".chooseBtn");
+          const teamForm = container.querySelector(".teamForm");
+          const submitBtn = container.querySelector(".submitTeam");
+          const addMore = container.querySelector(".addMore");
 
-        chooseBtn.addEventListener("click", () => teamForm.classList.toggle("hidden"));
+          chooseBtn.addEventListener("click", () => teamForm.classList.toggle("hidden"));
 
-        addMore.addEventListener("click", () => {
-          const newInput = document.createElement("input");
-          newInput.type = "text";
-          newInput.placeholder = "Enter teammate student ID";
-          newInput.className = "teamInput w-full p-1 border rounded mt-1";
-          teamForm.insertBefore(newInput, submitBtn);
-        });
-
-        submitBtn.addEventListener("click", async () => {
-          const ids = [...container.querySelectorAll(".teamInput")].map(i => i.value.trim()).filter(Boolean);
-          ids.push(studentId);
-          const team = [...new Set(ids)].map(id => ({ id }));
-
-          await setDoc(doc(db, "studentProjects", currentUser.uid), {
-            projectName: name,
-            members: team
+          addMore.addEventListener("click", () => {
+            const newInput = document.createElement("input");
+            newInput.type = "text";
+            newInput.placeholder = "Enter teammate student ID";
+            newInput.className = "teamInput w-full p-1 border rounded mt-1";
+            teamForm.insertBefore(newInput, submitBtn);
           });
 
-          alert(`Project '${name}' selected. Waiting for others to accept.`);
-          loadMyProject();
-        });
+          submitBtn.addEventListener("click", async () => {
+            const ids = [...container.querySelectorAll(".teamInput")].map(i => i.value.trim()).filter(Boolean);
+            ids.push(studentId);
+            const team = [...new Set(ids)];
+
+            await setDoc(doc(db, "projectRequests", currentUser.uid), {
+              projectName: name,
+              members: team,
+              initiator: currentUser.uid,
+              accepted: [studentId],
+              timestamp: Date.now()
+            });
+
+            alert(`Project '${name}' selected. Waiting for others to accept.`);
+            loadMyProject();
+          });
+        }
 
         projectsContainer.appendChild(container);
       }
@@ -191,19 +204,235 @@
 
     async function loadMyProject() {
       myProjectContainer.innerHTML = "";
-      const myProj = await getDoc(doc(db, "studentProjects", currentUser.uid));
-      if (myProj.exists()) {
-        const { projectName, members } = myProj.data();
-        const html = `
-          <div class="border p-4 rounded-xl bg-blue-50">
+      const studentProjRef = doc(db, "studentProjects", currentUser.uid);
+      const studentProjSnap = await getDoc(studentProjRef);
+      if (studentProjSnap.exists()) {
+        const studentProjData = studentProjSnap.data();
+        const projectName = studentProjData.projectName;
+        const members = studentProjData.members; 
+        const proposalUrl = studentProjData.proposalFile || "";
+        const reportUrl = studentProjData.reportFile || "";
+        
+        const projectsSnapshot = await getDocs(collection(db, "projects"));
+        let projectData = null;
+        projectsSnapshot.forEach(projDoc => {
+          const proj = projDoc.data();
+          if (proj.name === projectName) {
+            projectData = proj;
+          }
+        });
+        if (projectData) {
+          const proposalDeadline = projectData.proposalDeadline || "N/A";
+          const reportDeadline = projectData.reportDeadline || "N/A";
+          
+          const namesList = [];
+          for (const m of members) {
+            const studentId = m.id;
+            const studentsSnap = await getDocs(collection(db, "students"));
+            let foundName = null;
+            studentsSnap.forEach(docSnap => {
+              const sData = docSnap.data();
+              if (sData.studentId === studentId) {
+                foundName = sData.name;
+              }
+            });
+            namesList.push(foundName ? `${foundName} (ID: ${studentId})` : `Unknown (ID: ${studentId})`);
+          }
+          const projectDiv = document.createElement("div");
+          projectDiv.className = "border p-4 rounded-xl bg-blue-50";
+          projectDiv.innerHTML = `
             <h2 class="text-xl font-semibold text-green-900">${projectName}</h2>
-            <p class="text-sm text-gray-600">Your Team:</p>
+            <p class="text-sm text-gray-600">Proposal Deadline: <span class="font-medium">${proposalDeadline}</span>
+              <input type="file" accept="application/pdf" id="proposalUpload_${projectName}" class="ml-2" />
+              <button class="uploadProposalBtn bg-blue-600 text-white px-2 py-1 ml-2 rounded">Upload Proposal</button>
+              ${proposalUrl ? `<a href="${proposalUrl}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 ml-2 rounded">Download Proposal</a>` : ''}
+            </p>
+            <p class="text-sm text-gray-600">Report Deadline: <span class="font-medium">${reportDeadline}</span>
+              <input type="file" accept="application/pdf" id="reportUpload_${projectName}" class="ml-2" />
+              <button class="uploadReportBtn bg-blue-600 text-white px-2 py-1 ml-2 rounded">Upload Report</button>
+              ${reportUrl ? `<a href="${reportUrl}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 ml-2 rounded">Download Report</a>` : ''}
+            </p>
+            <p class="text-sm text-gray-600 mt-2">Your Team:</p>
             <ul class="list-disc pl-5">
-              ${members.map(m => `<li>ID: ${m.id}</li>`).join('')}
+              ${namesList.map(name => `<li>${name}</li>`).join('')}
             </ul>
-          </div>
-        `;
-        myProjectContainer.innerHTML = html;
+            <p class="text-green-700 mt-2">You have accepted this project.</p>
+          `;
+          myProjectContainer.appendChild(projectDiv);
+          
+          const uploadProposalBtn = projectDiv.querySelector(".uploadProposalBtn");
+          const uploadReportBtn = projectDiv.querySelector(".uploadReportBtn");
+          uploadProposalBtn.addEventListener("click", async () => {
+            const fileInput = projectDiv.querySelector(`#proposalUpload_${projectName}`);
+            const file = fileInput.files[0];
+            if (!file) {
+              alert("Please select a file.");
+              return;
+            }
+            if (file.type !== "application/pdf" || !file.name.endsWith(".pdf")) {
+              alert("Please select a valid PDF file.");
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              alert("File is too large. Please select a file smaller than 10MB.");
+              return;
+            }
+            try {
+              const uploadResponse = await uploadFileToUploadcare(file);
+              if (uploadResponse && uploadResponse[0]?.url) {
+                const proposalFileUrl = uploadResponse[0].url;
+                alert("Proposal uploaded successfully!");
+                
+                const studentDocRef = doc(db, "studentProjects", currentUser.uid);
+                await updateDoc(studentDocRef, {
+                  proposalFile: proposalFileUrl
+                });
+                
+                const projectDocs = await getDocs(collection(db, "projects"));
+                for (const projDoc of projectDocs.docs) {
+                  if (projDoc.data().name === projectName) {
+                    await updateDoc(doc(db, "projects", projDoc.id), {
+                      [`proposalFiles.${currentUser.uid}`]: proposalFileUrl
+                    });
+                    break;
+                  }
+                }
+                
+                location.reload();
+              } else {
+                alert("Failed to upload proposal.");
+              }
+            } catch (error) {
+              console.error("Error uploading proposal:", error);
+              alert(`Failed to upload proposal: ${error.message}`);
+            }
+          });
+          uploadReportBtn.addEventListener("click", async () => {
+            const fileInput = projectDiv.querySelector(`#reportUpload_${projectName}`);
+            const file = fileInput.files[0];
+            if (!file) {
+              alert("Please select a file.");
+              return;
+            }
+            if (file.type !== "application/pdf" || !file.name.endsWith(".pdf")) {
+              alert("Please select a valid PDF file.");
+              return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+              alert("File is too large. Please select a file smaller than 10MB.");
+              return;
+            }
+            try {
+              const uploadResponse = await uploadFileToUploadcare(file);
+              if (uploadResponse && uploadResponse[0]?.url) {
+                const reportFileUrl = uploadResponse[0].url;
+                alert("Report uploaded successfully!");
+
+                const studentDocRef = doc(db, "studentProjects", currentUser.uid);
+                await updateDoc(studentDocRef, {
+                  reportFile: reportFileUrl
+                });
+
+                const projectDocs = await getDocs(collection(db, "projects"));
+                for (const projDoc of projectDocs.docs) {
+                  if (projDoc.data().name === projectName) {
+                    await updateDoc(doc(db, "projects", projDoc.id), {
+                      [`reportFiles.${currentUser.uid}`]: reportFileUrl
+                    });
+                    break;
+                  }
+                }
+
+                location.reload();
+              } else {
+                alert("Failed to upload report.");
+              }
+            } catch (error) {
+              console.error("Error uploading report:", error);
+              alert(`Failed to upload report: ${error.message}`);
+            }
+          });
+        }
+      }
+    }
+
+    async function loadPendingRequests() {
+      const pendingDiv = document.createElement("div");
+      pendingDiv.className = "mt-6";
+      pendingDiv.innerHTML = `<h2 class="text-xl font-bold text-orange-700 mb-2">Pending Requests</h2>`;
+
+      const querySnapshot = await getDocs(collection(db, "projectRequests"));
+
+      for (const docSnap of querySnapshot.docs) {
+        const request = docSnap.data();
+        if (request.members.includes(studentId) && !request.accepted.includes(studentId)) {
+          const container = document.createElement("div");
+          container.className = "border p-4 rounded-xl bg-yellow-50 mb-2";
+          container.innerHTML = `
+            <p><strong>Project:</strong> ${request.projectName}</p>
+            <p><strong>Team:</strong> ${request.members.join(', ')}</p>
+            <button class="acceptBtn bg-green-600 text-white px-3 py-1 rounded-xl mt-2">Accept</button>
+          `;
+
+          container.querySelector(".acceptBtn").addEventListener("click", async () => {
+            request.accepted.push(studentId);
+            await updateDoc(doc(db, "projectRequests", request.initiator), {
+              accepted: request.accepted
+            });
+
+            if (request.accepted.length === request.members.length) {
+              for (const id of request.members) {
+                const query = await getDocs(collection(db, "students"));
+                let uid = "";
+                query.forEach(doc => {
+                  if (doc.data().studentId === id) uid = doc.id;
+                });
+                if (uid) {
+                  await setDoc(doc(db, "studentProjects", uid), {
+                    projectName: request.projectName,
+                    members: request.members.map(i => ({ id: i }))
+                  });
+                }
+              }
+            }
+
+            alert("Accepted!");
+            location.reload();
+          });
+
+          pendingDiv.appendChild(container);
+        }
+      }
+
+      myProjectContainer.parentNode.insertBefore(pendingDiv, myProjectContainer.nextSibling);
+    }
+
+    async function uploadFileToUploadcare(file) {
+      try {
+        const formData = new FormData();
+        formData.append("UPLOADCARE_PUB_KEY", "2ad2f9a526601364f3f2");
+        formData.append("UPLOADCARE_STORE", "auto");
+        formData.append("file", file);
+
+        const response = await fetch("https://upload.uploadcare.com/base/", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Upload failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.file) {
+          const url = `https://ucarecdn.com/${data.file}/`;
+          return [{ url: url }];
+        } else {
+          throw new Error("Upload failed: No file UUID returned");
+        }
+      } catch (error) {
+        console.error("Error uploading file to Uploadcare:", error);
+        throw new Error("Upload failed");
       }
     }
 
@@ -211,6 +440,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 

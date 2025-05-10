@@ -8,41 +8,48 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
   <div class="max-w-3xl mx-auto bg-white shadow-xl rounded-xl p-8 space-y-6">
-    <!-- Header with name -->
+    
     <div class="flex justify-between items-center">
       <h1 class="text-3xl font-bold text-blue-800">Supervisor Dashboard</h1>
       <span id="supervisorName" class="text-xl font-semibold text-gray-800"></span>
     </div>
 
-    <!-- Navigation Buttons -->
+    
     <div class="space-y-4 sm:space-y-0 sm:space-x-4 sm:flex sm:flex-row sm:justify-start">
       <button id="accountBtn" class="bg-gray-800 text-white px-4 py-2 rounded-xl hover:bg-gray-700 mb-4 sm:mb-0">Account Settings</button>
       <button id="addBtn" class="bg-blue-700 text-white px-4 py-2 rounded-xl hover:bg-blue-800 mb-4 sm:mb-0">Add Project</button>
       <button id="viewBtn" class="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800 mb-4 sm:mb-0">View My Projects</button>
-      <button id="logoutBtn" class="bg-red-700 text-white px-4 py-2 rounded-xl hover:bg-red-800 mb-4 sm:mb-0">Log Out</button>
+      <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 mb-4 sm:mb-0">Log Out</button>
     </div>
 
-    <!-- Account Settings Section -->
+    
     <div id="accountSection" class="hidden space-y-4">
       <input id="nameInput" type="text" placeholder="Enter your name" class="w-full p-2 border rounded-xl" />
       <button id="saveNameBtn" class="bg-purple-600 text-white px-4 py-2 rounded-xl hover:bg-purple-700">Save Name</button>
     </div>
 
-    <!-- Add Project Form -->
+    
     <form id="projectForm" class="space-y-4 hidden">
       <input id="projectName" type="text" placeholder="Project Name" class="w-full p-2 border rounded-xl" required />
       <textarea id="projectDescription" placeholder="Project Description" class="w-full p-2 border rounded-xl" required></textarea>
+      
+      <label class="block font-medium text-gray-700">Proposal Submission Deadline</label>
+      <input id="proposalDeadline" type="date" class="w-full p-2 border rounded-xl" required />
+
+      <label class="block font-medium text-gray-700">Final Report Submission Deadline</label>
+      <input id="reportDeadline" type="date" class="w-full p-2 border rounded-xl" required />
+
       <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">Add Project</button>
     </form>
 
-    <!-- My Projects List -->
+    
     <div id="myProjectsList" class="space-y-4 hidden"></div>
 
-    <!-- Status Message -->
+    
     <p id="status" class="mt-4 text-green-600 font-medium"></p>
   </div>
 
-  <!-- Firebase SDK -->
+  
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import {
@@ -71,7 +78,7 @@
     const status = document.getElementById('status');
     const myProjectsList = document.getElementById('myProjectsList');
     const accountSection = document.getElementById('accountSection');
-    const logoutBtn = document.getElementById('logoutBtn'); // Logout button
+    const logoutBtn = document.getElementById('logoutBtn'); 
 
     const accountBtn = document.getElementById('accountBtn');
     const addBtn = document.getElementById('addBtn');
@@ -94,9 +101,9 @@
 
     logoutBtn.onclick = async () => {
       try {
-        await signOut(auth); // Sign out from Firebase
+        await signOut(auth); 
         alert("Logged out successfully!");
-        window.location.href = "index.html"; // Redirect to login page after logout
+        window.location.href = "index.html"; 
       } catch (error) {
         console.error("Logout error:", error);
         alert("Error logging out. Please try again.");
@@ -131,42 +138,80 @@
       e.preventDefault();
       const name = document.getElementById('projectName').value.trim();
       const description = document.getElementById('projectDescription').value.trim();
-      if (!name || !description || !currentUser) return;
+      const proposalDeadline = document.getElementById('proposalDeadline').value;
+      const reportDeadline = document.getElementById('reportDeadline').value;
 
-      await addDoc(collection(db, "projects"), {
-        name,
-        description,
-        supervisorId: currentUser.uid
-      });
-      status.textContent = "Project added successfully!";
-      e.target.reset();
+      if (!name || !description || !proposalDeadline || !reportDeadline || !currentUser) {
+        alert("Please fill in all fields.");
+        return;
+      }
+
+      try {
+        await addDoc(collection(db, "projects"), {
+          name,
+          description,
+          proposalDeadline,
+          reportDeadline,
+          supervisorId: currentUser.uid
+        });
+
+        status.textContent = "Project added successfully!";
+        e.target.reset();
+      } catch (error) {
+        console.error("Error adding project:", error);
+        status.textContent = "Failed to add project. Please try again.";
+      }
     });
 
     async function loadMyProjects() {
       const q = query(collection(db, "projects"), where("supervisorId", "==", currentUser.uid));
-      const querySnapshot = await getDocs(q);
+      const projectSnapshots = await getDocs(q);
       myProjectsList.innerHTML = "";
 
-      querySnapshot.forEach(snapshot => {
-        const { name, description } = snapshot.data();
-        const projectId = snapshot.id;
+      for (const projectDoc of projectSnapshots.docs) {
+        const { name, description, proposalDeadline, reportDeadline } = projectDoc.data();
+        const projectId = projectDoc.id;
 
         const container = document.createElement("div");
         container.className = "border p-4 rounded-xl bg-gray-50 space-y-2";
         container.innerHTML = `
           <input class="name w-full border p-2 rounded" value="${name}" />
           <textarea class="desc w-full border p-2 rounded">${description}</textarea>
+
+          <label class="block font-medium text-gray-700">Proposal Deadline</label>
+          <input type="date" class="proposalDeadline w-full border p-2 rounded" value="${proposalDeadline}" />
+
+          <label class="block font-medium text-gray-700">Final Report Deadline</label>
+          <input type="date" class="reportDeadline w-full border p-2 rounded" value="${reportDeadline}" />
+
           <div class="space-x-2">
             <button class="update bg-yellow-500 text-white px-4 py-1 rounded hover:bg-yellow-600">Update</button>
             <button class="delete bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700">Delete</button>
+          </div>
+          <div class="students space-y-1 pt-2">
+            <p class="font-semibold text-gray-700">Chosen by:</p>
+            <div class="student-list text-sm text-gray-800">Loading students...</div>
           </div>
         `;
 
         container.querySelector(".update").addEventListener("click", async () => {
           const newName = container.querySelector(".name").value.trim();
           const newDesc = container.querySelector(".desc").value.trim();
-          if (!newName || !newDesc) return;
-          await updateDoc(doc(db, "projects", projectId), { name: newName, description: newDesc });
+          const newProposal = container.querySelector(".proposalDeadline").value;
+          const newReport = container.querySelector(".reportDeadline").value;
+
+          if (!newName || !newDesc || !newProposal || !newReport) {
+            alert("Please fill in all fields.");
+            return;
+          }
+
+          await updateDoc(doc(db, "projects", projectId), {
+            name: newName,
+            description: newDesc,
+            proposalDeadline: newProposal,
+            reportDeadline: newReport
+          });
+
           alert("Project updated.");
         });
 
@@ -179,11 +224,75 @@
         });
 
         myProjectsList.appendChild(container);
-      });
+        const studentListDiv = container.querySelector(".student-list");
+
+        try {
+          const studentsSnap = await getDocs(collection(db, "students"));
+          const studentsMap = {};
+          studentsSnap.forEach(snap => {
+            const sData = snap.data();
+            if (sData.studentId) {
+              studentsMap[sData.studentId] = { name: sData.name, uid: snap.id };
+            }
+          });
+
+          const studentProjectsSnap = await getDocs(query(collection(db, "studentProjects"), where("projectName", "==", name)));
+          const uidToFiles = {};
+          const studentIdsSet = new Set();
+
+          studentProjectsSnap.forEach(doc => {
+            const data = doc.data();
+            
+            const proposalFile = data.proposalFile;
+            const reportFile = data.reportFile;
+            if (data.members && Array.isArray(data.members)) {
+              data.members.forEach(member => {
+                const studentId = member.id;
+                if (studentsMap[studentId]) {
+                  const uid = studentsMap[studentId].uid;
+                  uidToFiles[uid] = {
+                    proposalUrl: proposalFile ? `${proposalFile}-/inline/no/` : null,
+                    reportUrl: reportFile ? `${reportFile}-/inline/no/` : null
+                  };
+                  studentIdsSet.add(studentId);
+                }
+              });
+            }
+          });
+
+          const studentIds = Array.from(studentIdsSet);
+
+          if (studentIds.length === 0) {
+            studentListDiv.textContent = "No students have chosen this project.";
+          } else {
+            studentListDiv.innerHTML = studentIds.map(id => {
+              const student = studentsMap[id];
+              if (!student) return `<p>• Unknown (${id})</p>`;
+              const uid = student.uid;
+              const files = uidToFiles[uid] || { proposalUrl: null, reportUrl: null };
+              const proposalUrl = files.proposalUrl;
+              const reportUrl = files.reportUrl;
+              return `
+                <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mb-2">
+                  <p class="font-medium">• ${student.name} (${id})</p>
+                  <div class="flex space-x-2 mt-1 sm:mt-0">
+                    ${proposalUrl ? `<a href="${proposalUrl}" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Proposal</a>` : '<span class="text-gray-500 text-xs">Proposal not submitted</span>'}
+                    ${reportUrl ? `<a href="${reportUrl}" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Report</a>` : '<span class="text-gray-500 text-xs">Report not submitted</span>'}
+                  </div>
+                </div>
+              `;
+            }).join("");
+          }
+        } catch (err) {
+          console.error("Error fetching students for project:", err);
+          studentListDiv.textContent = "Failed to load students.";
+        }
+      }
     }
   </script>
 </body>
 </html>
+
 
 
 

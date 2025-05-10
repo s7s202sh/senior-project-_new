@@ -10,15 +10,12 @@
   <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center">
     <h2 class="text-2xl font-bold mb-6 text-gray-800">Login to Project Manager</h2>
 
-    <!-- Microsoft Login Button -->
     <button id="loginBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700 transition mb-4">
       Sign in with Microsoft
     </button>
 
-    <!-- Divider -->
     <div class="my-4 text-gray-400">or use email</div>
 
-    <!-- Email/Password Login Form -->
     <input type="email" id="email" placeholder="University Email" class="w-full px-4 py-2 border rounded-xl mb-2" />
     <input type="password" id="password" placeholder="Password" class="w-full px-4 py-2 border rounded-xl mb-4" />
     
@@ -30,7 +27,6 @@
     </button>
   </div>
 
-  <!-- Firebase SDK using Modules -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getAuth, OAuthProvider, getRedirectResult, signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
@@ -49,7 +45,6 @@
     const auth = getAuth(app);
     const provider = new OAuthProvider('microsoft.com');
 
-    // Microsoft login
     document.getElementById('loginBtn').addEventListener('click', () => {
       signInWithRedirect(auth, provider);
     });
@@ -65,7 +60,6 @@
         alert("Microsoft login failed: " + error.message);
       });
 
-    // Email login
     document.getElementById('emailLoginBtn').addEventListener('click', () => {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
