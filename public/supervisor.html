@@ -237,51 +237,71 @@
           });
 
           const studentProjectsSnap = await getDocs(query(collection(db, "studentProjects"), where("projectName", "==", name)));
-          const uidToFiles = {};
-          const studentIdsSet = new Set();
 
-          studentProjectsSnap.forEach(doc => {
-            const data = doc.data();
-            
-            const proposalFile = data.proposalFile;
-            const reportFile = data.reportFile;
-            if (data.members && Array.isArray(data.members)) {
-              data.members.forEach(member => {
-                const studentId = member.id;
-                if (studentsMap[studentId]) {
-                  const uid = studentsMap[studentId].uid;
-                  uidToFiles[uid] = {
-                    proposalUrl: proposalFile ? `${proposalFile}-/inline/no/` : null,
-                    reportUrl: reportFile ? `${reportFile}-/inline/no/` : null
-                  };
-                  studentIdsSet.add(studentId);
-                }
-              });
-            }
-          });
-
-          const studentIds = Array.from(studentIdsSet);
-
-          if (studentIds.length === 0) {
+          if (studentProjectsSnap.empty) {
             studentListDiv.textContent = "No students have chosen this project.";
           } else {
-            studentListDiv.innerHTML = studentIds.map(id => {
-              const student = studentsMap[id];
-              if (!student) return `<p>• Unknown (${id})</p>`;
-              const uid = student.uid;
-              const files = uidToFiles[uid] || { proposalUrl: null, reportUrl: null };
-              const proposalUrl = files.proposalUrl;
-              const reportUrl = files.reportUrl;
+            studentListDiv.innerHTML = studentProjectsSnap.docs.map(spDoc => {
+              const data = spDoc.data();
+              const members = data.members || [];
+              const proposalFile = data.proposalFile;
+              const reportFile = data.reportFile;
+              const proposalFeedback = data.proposalFeedback || "";
+              const reportFeedback = data.reportFeedback || "";
+              const spDocId = spDoc.id;
+
+              const memberNames = members.map(member => {
+                const studentId = member.id;
+                const student = studentsMap[studentId];
+                return student ? `${student.name} (${studentId})` : `Unknown (${studentId})`;
+              }).join(", ");
+
               return `
-                <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mb-2">
-                  <p class="font-medium">• ${student.name} (${id})</p>
-                  <div class="flex space-x-2 mt-1 sm:mt-0">
-                    ${proposalUrl ? `<a href="${proposalUrl}" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Proposal</a>` : '<span class="text-gray-500 text-xs">Proposal not submitted</span>'}
-                    ${reportUrl ? `<a href="${reportUrl}" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Report</a>` : '<span class="text-gray-500 text-xs">Report not submitted</span>'}
+                <div class="group-entry mb-4 p-4 border rounded-xl bg-white shadow">
+                  <p class="font-semibold text-gray-700">Group Members: ${memberNames}</p>
+                  <div class="flex flex-col space-y-2 mt-2">
+                    <div class="flex flex-col space-y-1">
+                      ${proposalFile ? `
+                        <a href="${proposalFile}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Proposal</a>
+                        <textarea class="proposalFeedback w-full border p-1 rounded text-xs" placeholder="Enter proposal feedback">${proposalFeedback}</textarea>
+                        <button class="saveProposalFeedback bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" data-spdocid="${spDocId}">Save Feedback</button>
+                      ` : '<span class="text-gray-500 text-xs">Proposal not submitted</span>'}
+                    </div>
+                    <div class="flex flex-col space-y-1">
+                      ${reportFile ? `
+                        <a href="${reportFile}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">Download Report</a>
+                        <textarea class="reportFeedback w-full border p-1 rounded text-xs" placeholder="Enter report feedback">${reportFeedback}</textarea>
+                        <button class="saveReportFeedback bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600" data-spdocid="${spDocId}">Save Feedback</button>
+                      ` : '<span class="text-gray-500 text-xs">Report not submitted</span>'}
+                    </div>
                   </div>
                 </div>
               `;
             }).join("");
+
+            studentListDiv.querySelectorAll(".saveProposalFeedback").forEach(btn => {
+              btn.addEventListener("click", async () => {
+                const spDocId = btn.getAttribute("data-spdocid");
+                const groupEntry = btn.closest(".group-entry");
+                const feedback = groupEntry.querySelector(".proposalFeedback").value.trim();
+                if (spDocId) {
+                  await updateDoc(doc(db, "studentProjects", spDocId), { proposalFeedback: feedback });
+                  alert("Proposal feedback saved.");
+                }
+              });
+            });
+
+            studentListDiv.querySelectorAll(".saveReportFeedback").forEach(btn => {
+              btn.addEventListener("click", async () => {
+                const spDocId = btn.getAttribute("data-spdocid");
+                const groupEntry = btn.closest(".group-entry");
+                const feedback = groupEntry.querySelector(".reportFeedback").value.trim();
+                if (spDocId) {
+                  await updateDoc(doc(db, "studentProjects", spDocId), { reportFeedback: feedback });
+                  alert("Report feedback saved.");
+                }
+              });
+            });
           }
         } catch (err) {
           console.error("Error fetching students for project:", err);

@@ -212,6 +212,8 @@
         const members = studentProjData.members; 
         const proposalUrl = studentProjData.proposalFile || "";
         const reportUrl = studentProjData.reportFile || "";
+        const proposalFeedback = studentProjData.proposalFeedback || "";
+        const reportFeedback = studentProjData.reportFeedback || "";
         
         const projectsSnapshot = await getDocs(collection(db, "projects"));
         let projectData = null;
@@ -247,11 +249,19 @@
               <button class="uploadProposalBtn bg-blue-600 text-white px-2 py-1 ml-2 rounded">Upload Proposal</button>
               ${proposalUrl ? `<a href="${proposalUrl}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 ml-2 rounded">Download Proposal</a>` : ''}
             </p>
+            ${proposalFeedback ? `
+              <p class="text-sm text-gray-600">Proposal Feedback:</p>
+              <textarea class="w-full p-2 border rounded-xl bg-gray-100" readonly>${proposalFeedback}</textarea>
+            ` : proposalUrl ? `<p class="text-sm text-gray-600">Proposal Feedback: <span class="text-gray-500">No feedback provided yet</span></p>` : ''}
             <p class="text-sm text-gray-600">Report Deadline: <span class="font-medium">${reportDeadline}</span>
               <input type="file" accept="application/pdf" id="reportUpload_${projectName}" class="ml-2" />
               <button class="uploadReportBtn bg-blue-600 text-white px-2 py-1 ml-2 rounded">Upload Report</button>
               ${reportUrl ? `<a href="${reportUrl}-/inline/no/" download target="_blank" class="bg-green-600 text-white px-2 py-1 ml-2 rounded">Download Report</a>` : ''}
             </p>
+            ${reportFeedback ? `
+              <p class="text-sm text-gray-600">Report Feedback:</p>
+              <textarea class="w-full p-2 border rounded-xl bg-gray-100" readonly>${reportFeedback}</textarea>
+            ` : reportUrl ? `<p class="text-sm text-gray-600">Report Feedback: <span class="text-gray-500">No feedback provided yet</span></p>` : ''}
             <p class="text-sm text-gray-600 mt-2">Your Team:</p>
             <ul class="list-disc pl-5">
               ${namesList.map(name => `<li>${name}</li>`).join('')}
